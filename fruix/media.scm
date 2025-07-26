@@ -1,12 +1,16 @@
 (define-module (fruix media)
   #:use-module ((guix licenses) #:prefix license:)
+  #:use-module (guix utils)
+  #:use-module (guix gexp)
   #:use-module (guix packages)
   #:use-module (guix build-system gnu)
   #:use-module (guix git-download)
   #:use-module (gnu packages upnp)
   #:use-module (gnu packages gstreamer)
   #:use-module (gnu packages pkg-config)
-  #:use-module (gnu packages autotools))
+  #:use-module (gnu packages autotools)
+  #:use-module (gnu packages video)
+  #:use-module (gnu packages linux))
 
 (define-public gmrender-resurrect
   (package
@@ -47,3 +51,15 @@ CuBox or a general MediaServer.")
 Pi, CuBox or a general MediaServer. Fork of GMediaRenderer to add some features
 to make it usable.")
     (license license:gpl2)))
+
+(define-public ffmpeg-dv
+  (package
+    (inherit ffmpeg)
+    (name "ffmpeg-dv")
+    (inputs (modify-inputs (package-inputs ffmpeg)
+                           (append libiec61883 libavc1394)))
+    (arguments
+      (substitute-keyword-arguments
+        (package-arguments ffmpeg)
+        ((#:configure-flags flags ''())
+         #~(cons "--enable-libiec61883" #$flags))))))
