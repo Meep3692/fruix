@@ -1,4 +1,4 @@
-(define-module (fruix fonts)
+(define-module (fruix packages fonts)
   #:use-module ((guix licenses) #:prefix license:)
   #:use-module (guix packages)
   #:use-module (guix build-system font)
@@ -23,4 +23,4 @@ eurofurence typeface family.")
 typeface family. It shares the same style characteristics, but the proportions
 of most characters have been recalculated to fit into a 1:2 character cell,
 also some letters had to be completely redesigned.")
-    (license license:public-domain)))
+    (license license:cc-by-sa3.0)))

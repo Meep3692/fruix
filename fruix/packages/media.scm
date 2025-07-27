@@ -1,4 +1,4 @@
-(define-module (fruix media)
+(define-module (fruix packages media)
   #:use-module ((guix licenses) #:prefix license:)
   #:use-module (guix utils)
   #:use-module (guix gexp)
