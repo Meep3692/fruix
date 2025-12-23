@@ -4,13 +4,15 @@
   #:use-module (guix gexp)
   #:use-module (guix packages)
   #:use-module (guix build-system gnu)
+  #:use-module (guix build-system qt)
   #:use-module (guix git-download)
   #:use-module (gnu packages upnp)
   #:use-module (gnu packages gstreamer)
   #:use-module (gnu packages pkg-config)
   #:use-module (gnu packages autotools)
   #:use-module (gnu packages video)
-  #:use-module (gnu packages linux))
+  #:use-module (gnu packages linux)
+  #:use-module (gnu packages qt))
 
 (define-public gmrender-resurrect
   (package
@@ -63,3 +65,68 @@ to make it usable.")
         (package-arguments ffmpeg)
         ((#:configure-flags flags ''())
          #~(cons "--enable-libiec61883" #$flags))))))
+
+(define-public midieditor
+  (package
+   (name "midieditor")
+   (version "3.3.2")
+   (source (origin
+              (method git-fetch)
+              (uri
+                (git-reference
+                  (url "https://github.com/markusschwenk/midieditor.git")
+                  (commit version)))
+              (sha256
+                (base32 "1bj3y1z5pas62r3pls9ch8lh2h0yw3smin5qz703jcxja3czql5w"))))
+   (build-system qt-build-system)
+   (arguments
+       (list #:tests? #f
+             #:modules '((guix build qt-build-system)
+                         ((guix build gnu-build-system) #:prefix gnu:)
+                         (guix build utils))
+             #:phases
+             #~(modify-phases %standard-phases
+                 ;; Configure using qmake.
+                 (replace 'configure
+                   (lambda _
+                     (invoke "qmake" "-project" "-v" (string-append "PREFIX=" #$output))
+                     (invoke "qmake" "midieditor.pro" (string-append "PREFIX=" #$output))))
+                 (replace 'build (assoc-ref gnu:%standard-phases 'build))
+                 (replace 'install
+                   (lambda _
+                     (mkdir-p (string-append #$output "/bin"))
+                     ;(mkdir-p (string-append #$output "/share/applications"))
+                     (mkdir-p (string-append #$output "/share/pixmaps"))
+                     ;(mkdir-p (string-append #$output "/share/midieditor"))
+                     ;(mkdir-p (string-append #$output "/share/doc/midieditor"))
+                     ;(mkdir-p (string-append #$output "/lib/midieditor"))
+                     (install-file "MidiEditor" (string-append #$output "/lib/midieditor"))
+                     ;(install-file "packaging/unix/midieditor/midieditor" (string-append #$output "/bin"))
+                     (call-with-output-file (string-append #$output "/bin/midieditor")
+                                            (lambda (port)
+                                              (format port
+                                                      "#!/bin/bash~%cd ~a/lib/midieditor~%~a/lib/midieditor/MidiEditor"
+                                                      #$output
+                                                      #$output)))
+                     ;(install-file "packaging/unix/midieditor/MidiEditor.desktop" (string-append #$output "/usr/share/applications"))
+                     (copy-file "packaging/unix/midieditor/logo48.png" (string-append #$output "/share/pixmaps/midieditor.png"))
+                     (install-file "packaging/unix/midieditor/copyright" (string-append #$output "/share/doc/midieditor"))
+                     (copy-recursively "packaging/metronome" (string-append #$output "/share/midieditor/metronome"))
+                     (chmod (string-append #$output "/bin/midieditor") #o755)
+                     (chmod (string-append #$output "/lib/midieditor/MidiEditor") #o755)
+                     (make-desktop-entry-file
+                      (string-append #$output
+                                    "/share/applications/MidiEditor.desktop")
+                      
+                      #:name "MidiEditor"
+                      #:comment "NONE"
+                      #:categories '("AudioVideo" "Audio")
+                      #:exec (string-append #$output "/bin/midieditor")
+                      #:icon (string-append #$output
+                                            "/share/pixmaps/midieditor.png"))
+                     )))))
+   (inputs (list alsa-lib qtmultimedia-5))
+   (home-page "https://www.midieditor.org")
+   (synopsis "MidiEditor is a free software providing an interface to edit, record, and play Midi data.")
+   (description "The editor is able to open existing Midi files and modify their content. New files can be created and the user can enter his own composition by either recording Midi data from a connected Midi device (e.g., a digital piano or a keyboard) or by manually creating new notes and other Midi events. The recorded data can be easily quantified and edited afterwards using MidiEditor.")
+   (license license:gpl3)))
