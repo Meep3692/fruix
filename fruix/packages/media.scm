@@ -12,7 +12,8 @@
   #:use-module (gnu packages autotools)
   #:use-module (gnu packages video)
   #:use-module (gnu packages linux)
-  #:use-module (gnu packages qt))
+  #:use-module (gnu packages qt)
+  #:use-module (gnu packages gtk))
 
 (define-public gmrender-resurrect
   (package
@@ -59,12 +60,12 @@ to make it usable.")
     (inherit ffmpeg)
     (name "ffmpeg-dv")
     (inputs (modify-inputs (package-inputs ffmpeg)
-                           (append libiec61883 libavc1394)))
+                           (append libiec61883 libavc1394 harfbuzz)))
     (arguments
       (substitute-keyword-arguments
         (package-arguments ffmpeg)
         ((#:configure-flags flags ''())
-         #~(cons "--enable-libiec61883" #$flags))))))
+         #~(cons* "--enable-libiec61883" "--enable-libharfbuzz" #$flags))))))
 
 (define-public midieditor
   (package
