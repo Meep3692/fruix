@@ -149,7 +149,21 @@ to make it usable.")
               (sha256
                 (base32 "0jsl8i301d45gpnjqvd7c71kr9m4g8xglkn5f2g6g8qqf3nkvlfl"))))
    (build-system gnu-build-system)
-   (inputs (list amber-mpris-qt5 jsoncpp curl libmicrohttpd expat))
+   (arguments
+       (list #:validate-runpath? #f
+             #:phases
+             #~(modify-phases %standard-phases
+                 (add-after 'unpack 'fix-path
+                  (lambda* (#:key outputs #:allow-other-keys)
+                    (substitute* "upplay.pro"
+                      ; Disable mpris
+                      (("^  equals\\(QT_MAJOR_VERSION, 6\\) \\{")
+                        "  false {"))))
+                 ;; qmake configure
+                 (replace 'configure
+                   (lambda _
+                     (invoke "qmake" (string-append "PREFIX=" #$output) "WEBPLATFORM=webengine"))))))
+   (inputs (list qtbase qtdeclarative qtwebengine jsoncpp curl libmicrohttpd expat libupnpp))
    (home-page "https://www.lesbonscomptes.com/upplay/index.html")
    (synopsis "UPnP audio Control Point")
    (description "upplay is a desktop UPnP audio Control Point for Linux/Unix, MS Windows, and Mac OS. It began its existence as a companion to the Upmpdcli renderer, but it has become an ugly but nice, lightweight but capable, control point in its own right.")
@@ -173,6 +187,23 @@ to make it usable.")
 (https://github.com/pupnp/pupnp), based on its 1.6.x branch (around 1.6.25). It provides the
 fundamental layer for implementing UPnP devices or Control Points.")
    (license license:bsd-3)))
+
+(define-public libupnpp
+  (package
+   (name "libupnpp")
+   (version "1.0.3")
+   (source (origin
+              (method url-fetch)
+              (uri (string-append "https://www.lesbonscomptes.com/upmpdcli/downloads/libupnpp-" version ".tar.gz"))
+              (sha256
+                (base32 "0bijppcvahxiy8yb84fvf91hv5m7mb6bgvj6viwp50w4k9hh3cnk"))))
+   (build-system meson-build-system)
+   (inputs (list curl libmicrohttpd expat libnpupnp))
+   (native-inputs (list pkg-config))
+   (home-page "https://www.lesbonscomptes.com/upplay/index.html")
+   (synopsis "C++ api over libnpupnp")
+   (description "Libupnpp provides a higher level C++ API over libnpupnp or libupnp.")
+   (license license:lgpl2.1)))
 
 (define-public amber-mpris
   (package
@@ -199,7 +230,7 @@ fundamental layer for implementing UPnP devices or Control Points.")
                                       (assoc-ref outputs "out") "/lib\n"))
                       (("^headers.path = /usr/include/AmberMpris")
                         (string-append "headers.path = "
-                                      (assoc-ref outputs "out") "/usr/include/AmberMpris\n")))
+                                      (assoc-ref outputs "out") "/include\n")))
                     (substitute* "declarative/declarative.pro"
                       (("^target.path = .*")
                         (string-append "target.path = "
