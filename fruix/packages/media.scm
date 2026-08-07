@@ -5,6 +5,7 @@
   #:use-module (guix packages)
   #:use-module (guix build-system gnu)
   #:use-module (guix build-system qt)
+  #:use-module (guix download)
   #:use-module (guix git-download)
   #:use-module (gnu packages upnp)
   #:use-module (gnu packages gstreamer)
@@ -131,3 +132,110 @@ to make it usable.")
    (synopsis "MidiEditor is a free software providing an interface to edit, record, and play Midi data.")
    (description "The editor is able to open existing Midi files and modify their content. New files can be created and the user can enter his own composition by either recording Midi data from a connected Midi device (e.g., a digital piano or a keyboard) or by manually creating new notes and other Midi events. The recorded data can be easily quantified and edited afterwards using MidiEditor.")
    (license license:gpl3)))
+
+(define-public upplay
+  (package
+   (name "upplay")
+   (version "1.9.11")
+   (source (origin
+              (method url-fetch)
+              (uri (string-append "https://www.lesbonscomptes.com/upplay/downloads/upplay-" version ".tar.gz"))
+              (sha256
+                (base32 "0jsl8i301d45gpnjqvd7c71kr9m4g8xglkn5f2g6g8qqf3nkvlfl"))))
+   (build-system qt-build-system)
+  ;  (arguments
+  ;      (list #:tests? #t
+  ;            #:modules '((guix build qt-build-system)
+  ;                        ((guix build gnu-build-system) #:prefix gnu:)
+  ;                        (guix build utils))
+  ;            #:phases
+  ;            #~(modify-phases %standard-phases
+  ;                ;; Configure using qmake.
+  ;                (replace 'configure
+  ;                  (lambda _
+  ;                    (invoke "qmake" "-project" "-v" (string-append "PREFIX=" #$output))
+  ;                    (invoke "qmake" "midieditor.pro" (string-append "PREFIX=" #$output))))
+  ;                (replace 'build (assoc-ref gnu:%standard-phases 'build))
+  ;                (replace 'install
+  ;                  (lambda _
+  ;                    (mkdir-p (string-append #$output "/bin"))
+  ;                    ;(mkdir-p (string-append #$output "/share/applications"))
+  ;                    (mkdir-p (string-append #$output "/share/pixmaps"))
+  ;                    ;(mkdir-p (string-append #$output "/share/midieditor"))
+  ;                    ;(mkdir-p (string-append #$output "/share/doc/midieditor"))
+  ;                    ;(mkdir-p (string-append #$output "/lib/midieditor"))
+  ;                    (install-file "MidiEditor" (string-append #$output "/lib/midieditor"))
+  ;                    ;(install-file "packaging/unix/midieditor/midieditor" (string-append #$output "/bin"))
+  ;                    (call-with-output-file (string-append #$output "/bin/midieditor")
+  ;                                           (lambda (port)
+  ;                                             (format port
+  ;                                                     "#!/bin/bash~%cd ~a/lib/midieditor~%~a/lib/midieditor/MidiEditor"
+  ;                                                     #$output
+  ;                                                     #$output)))
+  ;                    ;(install-file "packaging/unix/midieditor/MidiEditor.desktop" (string-append #$output "/usr/share/applications"))
+  ;                    (copy-file "packaging/unix/midieditor/logo48.png" (string-append #$output "/share/pixmaps/midieditor.png"))
+  ;                    (install-file "packaging/unix/midieditor/copyright" (string-append #$output "/share/doc/midieditor"))
+  ;                    (copy-recursively "packaging/metronome" (string-append #$output "/share/midieditor/metronome"))
+  ;                    (chmod (string-append #$output "/bin/midieditor") #o755)
+  ;                    (chmod (string-append #$output "/lib/midieditor/MidiEditor") #o755)
+  ;                    (make-desktop-entry-file
+  ;                     (string-append #$output
+  ;                                   "/share/applications/MidiEditor.desktop")
+                      
+  ;                     #:name "MidiEditor"
+  ;                     #:comment "NONE"
+  ;                     #:categories '("AudioVideo" "Audio")
+  ;                     #:exec (string-append #$output "/bin/midieditor")
+  ;                     #:icon (string-append #$output
+  ;                                           "/share/pixmaps/midieditor.png"))
+  ;                    )))))
+   (inputs (list amber-mpris ))
+   (home-page "https://www.lesbonscomptes.com/upplay/index.html")
+   (synopsis "UPnP audio Control Point")
+   (description "upplay is a desktop UPnP audio Control Point for Linux/Unix, MS Windows, and Mac OS. It began its existence as a companion to the Upmpdcli renderer, but it has become an ugly but nice, lightweight but capable, control point in its own right.")
+   (license license:gpl2)))
+
+(define-public amber-mpris
+  (package
+   (name "amber-mpris")
+   (version "1.2.10")
+   (source (origin
+              (method git-fetch)
+              (uri
+                (git-reference
+                  (url "https://github.com/sailfishos/amber-mpris")
+                  (commit version)))
+              (sha256
+                (base32 "0wjhk2w9vmbc1g6p9bglw52g0icrnkcan0szx7s51fwpbrlg7s4h"))))
+   (build-system gnu-build-system)
+   (arguments
+       (list #:validate-runpath? #f
+             #:phases
+             #~(modify-phases %standard-phases
+                 (add-after 'unpack 'fix-path
+                  (lambda* (#:key outputs #:allow-other-keys)
+                    (substitute* "src/src.pro"
+                      (("^target.path = .*")
+                        (string-append "target.path = "
+                                      (assoc-ref outputs "out") "/lib\n"))
+                      (("^headers.path = /usr/include/AmberMpris")
+                        (string-append "headers.path = "
+                                      (assoc-ref outputs "out") "/usr/include/AmberMpris\n")))
+                    (substitute* "declarative/declarative.pro"
+                      (("^target.path = .*")
+                        (string-append "target.path = "
+                                      (assoc-ref outputs "out") "/lib/qt6/qml\n")))))
+                 ;; qmake configure
+                 (replace 'configure
+                   (lambda _
+                     (invoke "qmake" "-set" "QT_INSTALL_QML" (string-append #$output "/lib/qt6/qml/Amber/Mpris/"))
+                     (invoke "qmake" "-set" "QT_INSTALL_LIBS" (string-append #$output "/lib"))
+                     (invoke "qmake" "-query")
+                     (invoke "qmake")
+                     )))))
+   (native-inputs (list ))
+   (inputs (list qtdeclarative qtbase))
+   (home-page "https://github.com/sailfishos/amber-mpris")
+   (synopsis "MPRIS interface for QT and QML")
+   (description "MPRIS v.2 specification implementation for Qt and QML plugin.")
+   (license license:gpl2)))
