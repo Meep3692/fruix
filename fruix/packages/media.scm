@@ -5,6 +5,7 @@
   #:use-module (guix packages)
   #:use-module (guix build-system gnu)
   #:use-module (guix build-system qt)
+  #:use-module (guix build-system meson)
   #:use-module (guix download)
   #:use-module (guix git-download)
   #:use-module (gnu packages upnp)
@@ -14,7 +15,12 @@
   #:use-module (gnu packages video)
   #:use-module (gnu packages linux)
   #:use-module (gnu packages qt)
-  #:use-module (gnu packages gtk))
+  #:use-module (gnu packages gtk)
+  #:use-module (gnu packages serialization)
+  #:use-module (gnu packages curl)
+  #:use-module (gnu packages gnunet)
+  #:use-module (gnu packages xml)
+  #:use-module (gnu packages pkg-config))
 
 (define-public gmrender-resurrect
   (package
@@ -142,12 +148,31 @@ to make it usable.")
               (uri (string-append "https://www.lesbonscomptes.com/upplay/downloads/upplay-" version ".tar.gz"))
               (sha256
                 (base32 "0jsl8i301d45gpnjqvd7c71kr9m4g8xglkn5f2g6g8qqf3nkvlfl"))))
-   (build-system qt-build-system)
-   (inputs (list amber-mpris-qt5 jsoncpp))
+   (build-system gnu-build-system)
+   (inputs (list amber-mpris-qt5 jsoncpp curl libmicrohttpd expat))
    (home-page "https://www.lesbonscomptes.com/upplay/index.html")
    (synopsis "UPnP audio Control Point")
    (description "upplay is a desktop UPnP audio Control Point for Linux/Unix, MS Windows, and Mac OS. It began its existence as a companion to the Upmpdcli renderer, but it has become an ugly but nice, lightweight but capable, control point in its own right.")
    (license license:gpl2)))
+
+(define-public libnpupnp
+  (package
+   (name "libnpupnp")
+   (version "6.2.3")
+   (source (origin
+              (method url-fetch)
+              (uri (string-append "https://www.lesbonscomptes.com/upmpdcli/downloads/libnpupnp-" version ".tar.gz"))
+              (sha256
+                (base32 "15mvyvja25ysc8ibbila00bs1il91dy6di1x6hbkfq7y9ag2lgan"))))
+   (build-system meson-build-system)
+   (inputs (list curl libmicrohttpd expat))
+   (native-inputs (list pkg-config))
+   (home-page "https://www.lesbonscomptes.com/upplay/index.html")
+   (synopsis "UPnP library derived from pupnp")
+   (description "npupnp (new pupnp or not pupnp ?) is a base UPnP library derived from the venerable pupnp
+(https://github.com/pupnp/pupnp), based on its 1.6.x branch (around 1.6.25). It provides the
+fundamental layer for implementing UPnP devices or Control Points.")
+   (license license:bsd-3)))
 
 (define-public amber-mpris
   (package
