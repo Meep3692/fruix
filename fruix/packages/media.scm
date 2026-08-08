@@ -5,6 +5,8 @@
   #:use-module (guix packages)
   #:use-module (guix build-system gnu)
   #:use-module (guix build-system qt)
+  #:use-module (guix build-system meson)
+  #:use-module (guix download)
   #:use-module (guix git-download)
   #:use-module (gnu packages upnp)
   #:use-module (gnu packages gstreamer)
@@ -13,7 +15,12 @@
   #:use-module (gnu packages video)
   #:use-module (gnu packages linux)
   #:use-module (gnu packages qt)
-  #:use-module (gnu packages gtk))
+  #:use-module (gnu packages gtk)
+  #:use-module (gnu packages serialization)
+  #:use-module (gnu packages curl)
+  #:use-module (gnu packages gnunet)
+  #:use-module (gnu packages xml)
+  #:use-module (gnu packages pkg-config))
 
 (define-public gmrender-resurrect
   (package
@@ -131,3 +138,130 @@ to make it usable.")
    (synopsis "MidiEditor is a free software providing an interface to edit, record, and play Midi data.")
    (description "The editor is able to open existing Midi files and modify their content. New files can be created and the user can enter his own composition by either recording Midi data from a connected Midi device (e.g., a digital piano or a keyboard) or by manually creating new notes and other Midi events. The recorded data can be easily quantified and edited afterwards using MidiEditor.")
    (license license:gpl3)))
+
+(define-public upplay
+  (package
+   (name "upplay")
+   (version "1.9.11")
+   (source (origin
+              (method url-fetch)
+              (uri (string-append "https://www.lesbonscomptes.com/upplay/downloads/upplay-" version ".tar.gz"))
+              (sha256
+                (base32 "0jsl8i301d45gpnjqvd7c71kr9m4g8xglkn5f2g6g8qqf3nkvlfl"))))
+   (build-system gnu-build-system)
+   (arguments
+       (list #:validate-runpath? #f
+             #:phases
+             #~(modify-phases %standard-phases
+                 (add-after 'unpack 'fix-path
+                  (lambda* (#:key outputs #:allow-other-keys)
+                    (substitute* "upplay.pro"
+                      ; Disable mpris
+                      (("^  equals\\(QT_MAJOR_VERSION, 6\\) \\{")
+                        "  false {"))))
+                 ;; qmake configure
+                 (replace 'configure
+                   (lambda _
+                     (invoke "qmake" (string-append "PREFIX=" #$output) "WEBPLATFORM=webengine"))))))
+   (inputs (list qtbase qtdeclarative qtwebengine jsoncpp curl libmicrohttpd expat libupnpp))
+   (home-page "https://www.lesbonscomptes.com/upplay/index.html")
+   (synopsis "UPnP audio Control Point")
+   (description "upplay is a desktop UPnP audio Control Point for Linux/Unix, MS Windows, and Mac OS. It began its existence as a companion to the Upmpdcli renderer, but it has become an ugly but nice, lightweight but capable, control point in its own right.")
+   (license license:gpl2)))
+
+(define-public libnpupnp
+  (package
+   (name "libnpupnp")
+   (version "6.2.3")
+   (source (origin
+              (method url-fetch)
+              (uri (string-append "https://www.lesbonscomptes.com/upmpdcli/downloads/libnpupnp-" version ".tar.gz"))
+              (sha256
+                (base32 "15mvyvja25ysc8ibbila00bs1il91dy6di1x6hbkfq7y9ag2lgan"))))
+   (build-system meson-build-system)
+   (inputs (list curl libmicrohttpd expat))
+   (native-inputs (list pkg-config))
+   (home-page "https://www.lesbonscomptes.com/upplay/index.html")
+   (synopsis "UPnP library derived from pupnp")
+   (description "npupnp (new pupnp or not pupnp ?) is a base UPnP library derived from the venerable pupnp
+(https://github.com/pupnp/pupnp), based on its 1.6.x branch (around 1.6.25). It provides the
+fundamental layer for implementing UPnP devices or Control Points.")
+   (license license:bsd-3)))
+
+(define-public libupnpp
+  (package
+   (name "libupnpp")
+   (version "1.0.3")
+   (source (origin
+              (method url-fetch)
+              (uri (string-append "https://www.lesbonscomptes.com/upmpdcli/downloads/libupnpp-" version ".tar.gz"))
+              (sha256
+                (base32 "0bijppcvahxiy8yb84fvf91hv5m7mb6bgvj6viwp50w4k9hh3cnk"))))
+   (build-system meson-build-system)
+   (inputs (list curl libmicrohttpd expat libnpupnp))
+   (native-inputs (list pkg-config))
+   (home-page "https://www.lesbonscomptes.com/upplay/index.html")
+   (synopsis "C++ api over libnpupnp")
+   (description "Libupnpp provides a higher level C++ API over libnpupnp or libupnp.")
+   (license license:lgpl2.1)))
+
+(define-public amber-mpris
+  (package
+   (name "amber-mpris")
+   (version "1.2.10")
+   (source (origin
+              (method git-fetch)
+              (uri
+                (git-reference
+                  (url "https://github.com/sailfishos/amber-mpris")
+                  (commit version)))
+              (sha256
+                (base32 "0wjhk2w9vmbc1g6p9bglw52g0icrnkcan0szx7s51fwpbrlg7s4h"))))
+   (build-system gnu-build-system)
+   (arguments
+       (list #:validate-runpath? #f
+             #:phases
+             #~(modify-phases %standard-phases
+                 (add-after 'unpack 'fix-path
+                  (lambda* (#:key outputs #:allow-other-keys)
+                    (substitute* "src/src.pro"
+                      (("^target.path = .*")
+                        (string-append "target.path = "
+                                      (assoc-ref outputs "out") "/lib\n"))
+                      (("^headers.path = /usr/include/AmberMpris")
+                        (string-append "headers.path = "
+                                      (assoc-ref outputs "out") "/include\n")))
+                    (substitute* "declarative/declarative.pro"
+                      (("^target.path = .*")
+                        (string-append "target.path = "
+                                      (assoc-ref outputs "out") "/lib/qt6/qml/Amber/Mpris\n")))))
+                 ;; qmake configure
+                 (replace 'configure
+                   (lambda _
+                     (invoke "qmake"))))))
+   (native-inputs (list ))
+   (inputs (list qtdeclarative qtbase))
+   (home-page "https://github.com/sailfishos/amber-mpris")
+   (synopsis "MPRIS interface for QT and QML")
+   (description "MPRIS v.2 specification implementation for Qt and QML plugin.")
+   (license license:gpl2)))
+
+(define-public amber-mpris-qt5
+  (package
+   (inherit amber-mpris)
+   (name "amber-mpris-qt5")
+   (arguments
+     (substitute-keyword-arguments arguments
+       ((#:phases phases '%standard-phases)
+             #~(modify-phases #$phases
+                 (add-after 'fix-path 'qt5-path
+                  (lambda* (#:key outputs #:allow-other-keys)
+                    (substitute* "declarative/declarative.pro"
+                      (("^target.path = .*")
+                        (string-append "target.path = "
+                                      (assoc-ref outputs "out") "/lib/qt5/qml/Amber/Mpris\n")))
+                    (substitute* "src/src.pro"
+                      (("^prf.path = .*")
+                        (string-append "target.path = "
+                                      (assoc-ref outputs "out") "/lib/qt5/mkspecs/features\n")))))))))
+   (inputs (list qtdeclarative-5 qtbase-5))))
